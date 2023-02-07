@@ -22,6 +22,7 @@ import loss_landscapes.metrics
 class Exp_Main:
     def __init__(self, args):
         self.args = args
+        self.logger = args.logger
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self._build_model().to(self.device)
         self._prepare_data()
@@ -36,7 +37,7 @@ class Exp_Main:
             'TransformerLDec': TransformerLDec,
         }
         model = model_dict[self.args.model].Model(self.args).float()
-        print(model)
+        self.logger.info(model)
         return model
 
 
@@ -60,6 +61,7 @@ class Exp_Main:
 
     def train(self):
         best_val_loss = 1e9-1
+        train_hist, val_hist, test_hist = [], [], []
         for epoch in range(self.args.train_epochs):
             self.model.train()
             train_loss = []
@@ -74,20 +76,25 @@ class Exp_Main:
                 train_loss.append(loss.item())
 
                 if (i + 1) % 100 == 0:
-                    print(f"epoch {epoch+1}, iters: {i+1}, loss: {loss.item():.7f} ")
+                    self.logger.info(f"epoch {epoch+1}, iters: {i+1}, loss: {loss.item():.7f} ")
                 loss.backward()
                 self.optimizer.step()
 
             train_loss = np.average(train_loss)
             val_loss = self.infer(self.val_loader)
             test_loss = self.infer(self.test_loader)
+            train_hist.append(train_loss)
+            val_hist.append(val_loss)
+            test_hist.append(test_loss)
 
-            print(f"Epoch: {epoch + 1} | "
-                  f"Train Loss: {train_loss:.7f}, Val Loss: {val_loss:.7f}, Test Loss: {test_loss:.7f}")
+            self.logger.info(
+                f"Epoch: {epoch + 1} | "
+                f"Train Loss: {train_loss:.7f}, Val Loss: {val_loss:.7f}, Test Loss: {test_loss:.7f}"
+            )
 
-            torch.save(self.model.state_dict(), os.path.join(self.args.checkpoint_path + f"Epoch{epoch + 1}.pth"))
+            torch.save(self.model.state_dict(), os.path.join(self.args.checkpoint_path, f"Epoch{epoch + 1}.pth"))
             if val_loss < best_val_loss:
-                print(f"saving best model @epoch {epoch+1}")
+                self.logger.info(f"saving best model @epoch {epoch+1}")
                 torch.save(self.model.state_dict(), os.path.join(self.args.checkpoint_path, 'best.pth'))
                 best_val_loss = val_loss
 
@@ -98,8 +105,9 @@ class Exp_Main:
             })
 
         best_model_path = os.path.join(self.args.checkpoint_path, 'best.pth')
-        print(f"best model from: {best_model_path}")
+        self.logger.info(f"best model from: {best_model_path}")
         self.model.load_state_dict(torch.load(best_model_path))
+        self.plot_training_graph(train_hist, val_hist, test_hist)
         self.visualize_loss_landscape()
 
 
@@ -129,7 +137,7 @@ class Exp_Main:
     def test(self):
         # load
         best_model_path = os.path.join(self.args.checkpoint_path, 'best.pth')
-        print(f"best model from: {best_model_path}")
+        self.logger.info(f"best model from: {best_model_path}")
         self.model.load_state_dict(torch.load(best_model_path))
         self.model.eval()
 
@@ -149,7 +157,7 @@ class Exp_Main:
 
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
-        print('test shape:', preds.shape, trues.shape)
+        self.logger.info(f'test shape:{preds.shape} {trues.shape}')
 
         mae, mse, rmse, mape, mspe = metric(preds, trues)
 
@@ -166,6 +174,19 @@ class Exp_Main:
         np.save(os.path.join(self.args.output_path, 'true.npy'), trues)
 
 
+    def plot_training_graph(self, train_hist=None, val_hist=None, test_hist=None):
+        plt.figure(figsize=(20, 6))
+        plt.title(f'Training History | {self.args.exp_id}')
+        if train_hist:
+            plt.plot(range(1, len(train_hist)+1), train_hist, label="train_loss")
+        if val_hist:
+            plt.plot(range(1, len(val_hist)+1), val_hist, label="val_loss")
+        if test_hist:
+            plt.plot(range(1, len(test_hist)+1), test_hist, label="test_loss")
+        plt.legend()
+        plt.savefig(os.path.join(self.args.plot_path, f"training_hist.png"))
+
+
     @torch.no_grad()
     def visualize_loss_landscape(self, STEPS=40):
         # loss landscape
@@ -180,15 +201,16 @@ class Exp_Main:
             model_final, ll_metric, 10, STEPS, normalization='filter', deepcopy_model=True)
 
         # 2D
+        plt.figure(figsize=(20, 6))
         plt.contour(loss_data_fin, levels=50)
         plt.title(f'Loss Contours around Trained Model | {self.args.exp_id}')
         plt.savefig(os.path.join(self.args.plot_path, f"loss_landscape_2D.png"))
 
         # 3D
-        fig = plt.figure()
+        fig = plt.figure(figsize=(20, 6))
         ax = plt.axes(projection='3d')
         X = np.array([[j for j in range(STEPS)] for i in range(STEPS)])
         Y = np.array([[i for _ in range(STEPS)] for i in range(STEPS)])
         ax.plot_surface(X, Y, loss_data_fin, rstride=1, cstride=1, cmap='viridis', edgecolor='none')
-        ax.set_title(f'Surface Plot of Loss Landscape| {self.args.exp_id}')
+        ax.set_title(f'Surface Plot of Loss Landscape | {self.args.exp_id}')
         fig.savefig(os.path.join(self.args.plot_path, f"loss_landscape_3D.png"))
