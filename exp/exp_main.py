@@ -5,6 +5,7 @@ from utils.metrics import metric
 import torch
 import torch.nn as nn
 from torch import optim
+from torch.nn.utils import clip_grad_norm_
 
 import os
 import copy
@@ -77,6 +78,8 @@ class Exp_Main:
 
                 if (i + 1) % 100 == 0:
                     self.logger.info(f"epoch {epoch+1}, iters: {i+1}, loss: {loss.item():.7f} ")
+                if self.args.grad_clip > 0:
+                    clip_grad_norm_(self.model.parameters(), self.args.grad_clip)
                 loss.backward()
                 self.optimizer.step()
 
@@ -185,6 +188,7 @@ class Exp_Main:
             plt.plot(range(1, len(test_hist)+1), test_hist, label="test_loss")
         plt.legend()
         plt.savefig(os.path.join(self.args.plot_path, f"training_hist.png"))
+        wandb.log({"training_hist": wandb.Image(plt)})
 
 
     @torch.no_grad()
@@ -205,6 +209,7 @@ class Exp_Main:
         plt.contour(loss_data_fin, levels=50)
         plt.title(f'Loss Contours around Trained Model | {self.args.exp_id}')
         plt.savefig(os.path.join(self.args.plot_path, f"loss_landscape_2D.png"))
+        wandb.log({"loss_landscape_2D": wandb.Image(plt)})
 
         # 3D
         fig = plt.figure(figsize=(20, 6))
@@ -214,3 +219,4 @@ class Exp_Main:
         ax.plot_surface(X, Y, loss_data_fin, rstride=1, cstride=1, cmap='viridis', edgecolor='none')
         ax.set_title(f'Surface Plot of Loss Landscape | {self.args.exp_id}')
         fig.savefig(os.path.join(self.args.plot_path, f"loss_landscape_3D.png"))
+        wandb.log({"loss_landscape_3D": wandb.Image(fig)})

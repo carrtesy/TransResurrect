@@ -30,7 +30,8 @@ def prepare_arguments(parser):
     parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=96, help='input sequence length')
     parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
-    parser.add_argument('--num_channels', type=int, default=7, help='encoder input size')
+    parser.add_argument('--num_features', type=int, default=7, help='encoder input size')
+    parser.add_argument('--use_RevIN', type=bool, default=False)
 
     # model define
     parser.add_argument('--d_model', type=int, default=64, help='dimension of model')
@@ -40,6 +41,7 @@ def prepare_arguments(parser):
     parser.add_argument('--d_ff', type=int, default=256, help='dimension of fcn')
     parser.add_argument('--dropout', type=float, default=0.0, help='dropout')
     parser.add_argument('--activation', type=str, default='gelu', help='activation')
+    parser.add_argument('--grad_clip', type=float, default=0.0)
 
     # optimization
     parser.add_argument('--train_epochs', type=int, default=30, help='train epochs')
@@ -72,6 +74,7 @@ def configure_exp_id(args):
         id = ""
         id += f"{args.data}_{args.seq_len}_{args.pred_len}_{args.features}"
         id += f"_bs_{args.batch_size}_lr_{args.learning_rate}_wd_{args.weight_decay}_ep{args.train_epochs}"
-        id += f"_d_{args.d_model}_ff_{args.d_ff}_el_{args.e_layers}_dl_{args.d_layers}_do_{args.dropout}"
+        id += f"_d_{args.d_model}_ff_{args.d_ff}_el_{args.e_layers}_dl_{args.d_layers}_do_{args.dropout}_gc_{args.grad_clip}"
+        id += f"_RevIN_{args.use_RevIN}"
         args.exp_id = id
     return args

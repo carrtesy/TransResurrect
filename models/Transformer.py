@@ -16,8 +16,8 @@ class Model(nn.Module):
         self.pred_len = configs.pred_len
 
         # Embedding
-        self.enc_embedding = DataEmbedding(configs.num_channels, configs.d_model, configs.dropout)
-        self.dec_embedding = DataEmbedding(configs.num_channels, configs.d_model, configs.dropout)
+        self.enc_embedding = DataEmbedding(configs.num_features, configs.d_model, configs.dropout)
+        self.dec_embedding = DataEmbedding(configs.num_features, configs.d_model, configs.dropout)
         # Encoder
         self.encoder = Encoder(
             [
