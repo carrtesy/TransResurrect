@@ -1,0 +1,48 @@
+program: run.py
+method: grid
+name: TLDEC_ettm2_336_192
+project: TransResurrect
+entity: carrtesy
+metric:
+  name: mse
+  goal: minimize
+parameters:
+  # for finetuning
+  learning_rate:
+    values: [ 0.001, 0.0001, 0.00001, 0.000001 ]
+  d_model:
+    value: 64
+  d_ff:
+    value: 256
+  dropout:
+    values: [0.0, 0.1, 0.2]
+  batch_size:
+    values: [32, 64]
+  weight_decay:
+    values: [3, 2, 1, 0.1, 0.001, 0.0]
+  # data
+  root_path:
+    value: ./dataset/ETT-small
+  data_path:
+    value: ETTm2.csv
+  data:
+    value: ETTm2
+  # seq_length
+  seq_len:
+    value: 336
+  label_len:
+    value: 48
+  pred_len:
+    value: 192
+  # data features dim
+  num_features:
+    value: 7
+  # others
+  features:
+    value: M
+  model:
+    value: TransformerLDec
+  e_layers:
+    value: 1
+  d_layers:
+    value: 1
